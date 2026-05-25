@@ -1,0 +1,18 @@
+{
+  "total_drugs": 6692,
+  "total_base_names": 3396,
+  "brand_count": 2023,
+  "generic_count": 4669,
+  "otc_count": 1533,
+  "brand_with_generic": 842,
+  "avg_brand_markup": 60.9,
+  "max_markup": 1214.2,
+  "drugs_price_increased": 3871,
+  "drugs_price_decreased": 2352,
+  "drugs_price_tracked": 6447,
+  "median_price": 0.7886,
+  "data_source": "CMS/Medicaid NADAC",
+  "data_date": "2025-12-31",
+  "data_freshness": "Annual (weekly snapshots within file)",
+  "generated": "2026-05-25"
+}

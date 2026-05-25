@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drug Price Check — What Your Pharmacy Actually Pays</title>
+    <meta name="description" content="Search NADAC drug acquisition costs. See what pharmacies actually pay per pill vs. what you're charged. 6,692 drugs. Brand vs generic markup exposed.">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a25;
+            --border: #2a2a3a;
+            --text: #e0e0e8;
+            --text-dim: #8888a0;
+            --accent: #4ecdc4;
+            --accent2: #45b7aa;
+            --red: #e74c5f;
+            --green: #2ecc71;
+            --orange: #f39c12;
+            --brand: #9b59b6;
+            --generic: #3498db;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+        header {
+            text-align: center;
+            padding: 40px 0 20px;
+        }
+
+        h1 {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1.05em;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 24px 0;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .stat {
+            text-align: center;
+            min-width: 100px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.78em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Search */
+        .search-container {
+            margin: 24px 0;
+            position: relative;
+        }
+
+        #search {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 1.1em;
+            background: var(--surface);
+            color: var(--text);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #search:focus { border-color: var(--accent); }
+        #search::placeholder { color: var(--text-dim); }
+
+        .search-hint {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
+
+        /* Results */
+        #results { margin-top: 16px; }
+
+        .result-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .result-card:hover { border-color: var(--accent); }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .result-name {
+            font-size: 1.15em;
+            font-weight: 600;
+        }
+
+        .result-meta {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .badge {
+            font-size: 0.72em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-brand { background: var(--brand); color: white; }
+        .badge-generic { background: var(--generic); color: white; }
+        .badge-otc { background: var(--orange); color: #111; }
+
+        .result-price {
+            margin-top: 6px;
+            font-size: 0.95em;
+        }
+
+        .price-value {
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .markup-value {
+            color: var(--red);
+            font-weight: 600;
+        }
+
+        .result-sub {
+            color: var(--text-dim);
+            font-size: 0.85em;
+            margin-top: 4px;
+        }
+
+        /* Detail view */
+        .detail-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 100;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .detail-overlay.active { display: block; }
+
+        .detail-panel {
+            max-width: 800px;
+            margin: 40px auto;
+            background: var(--surface);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+        }
+
+        .detail-close {
+            float: right;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .detail-close:hover { color: var(--text); }
+
+        .detail-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 16px;
+            padding-right: 40px;
+        }
+
+        /* Formulation table */
+        .form-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.9em;
+        }
+
+        .form-table th {
+            text-align: left;
+            padding: 8px 10px;
+            background: var(--surface2);
+            color: var(--text-dim);
+            font-weight: 600;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .form-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .form-table tr:last-child td { border-bottom: none; }
+
+        .price-cell { font-weight: 600; }
+        .markup-cell { color: var(--red); font-weight: 600; }
+        .change-up { color: var(--red); }
+        .change-down { color: var(--green); }
+
+        /* Price chart */
+        .chart-container {
+            margin: 20px 0;
+            padding: 16px;
+            background: var(--surface2);
+            border-radius: 8px;
+        }
+
+        .chart-title {
+            font-size: 0.9em;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        canvas { width: 100% !important; height: 200px !important; }
+
+        /* Highlights sections */
+        .highlights {
+            margin: 32px 0;
+        }
+
+        .highlights h2 {
+            font-size: 1.2em;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .highlight-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .tab-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+        .highlight-list { display: none; }
+        .highlight-list.active { display: block; }
+
+        .hl-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .hl-item:hover { border-color: var(--accent); }
+
+        .hl-name {
+            font-weight: 600;
+            font-size: 0.92em;
+        }
+
+        .hl-desc {
+            color: var(--text-dim);
+            font-size: 0.8em;
+        }
+
+        .hl-stat {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .hl-stat-value {
+            font-weight: 700;
+            font-size: 1.05em;
+        }
+
+        .hl-stat-label {
+            font-size: 0.72em;
+            color: var(--text-dim);
+        }
+
+        /* Methodology */
+        .methodology {
+            margin-top: 40px;
+            padding: 20px;
+            background: var(--surface);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .methodology h2 {
+            font-size: 1.1em;
+            margin-bottom: 12px;
+        }
+
+        .methodology p, .methodology li {
+            color: var(--text-dim);
+            font-size: 0.88em;
+            line-height: 1.6;
+        }
+
+        .methodology ul { margin: 8px 0 8px 20px; }
+
+        .methodology a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .methodology a:hover { text-decoration: underline; }
+
+        footer {
+            text-align: center;
+            padding: 24px 0;
+            color: var(--text-dim);
+            font-size: 0.8em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-dim);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 12px; }
+            header { padding: 24px 0 12px; }
+            h1 { font-size: 1.5em; }
+            .stats-bar { gap: 12px; padding: 12px; }
+            .stat-value { font-size: 1.2em; }
+            .form-table { font-size: 0.82em; }
+            .form-table th, .form-table td { padding: 6px 6px; }
+            .detail-panel { padding: 16px; margin: 20px auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Drug Price Check</h1>
+            <p class="subtitle">What your pharmacy actually pays for your medication. NADAC acquisition costs vs. what you're charged.</p>
+        </header>
+
+        <div class="stats-bar" id="stats-bar">
+            <div class="stat">
+                <div class="stat-value" id="stat-drugs">—</div>
+                <div class="stat-label">Drugs</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="stat-brand">—</div>
+                <div class="stat-label">Brand Name</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="stat-generic">—</div>
+                <div class="stat-label">Generic</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="stat-markup">—</div>
+                <div class="stat-label">Avg Brand Markup</div>
+            </div>
+        </div>
+
+        <div class="search-container">
+            <input type="text" id="search" placeholder="Search by drug name (e.g., Lipitor, metformin, Ambien...)" autocomplete="off" autofocus>
+            <div class="search-hint">Search <span id="drug-count">6,692</span> drugs. Type a drug name to see what pharmacies pay.</div>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="highlights" id="highlights">
+            <h2>Explore Drug Pricing</h2>
+            <div class="highlight-tabs">
+                <button class="tab-btn active" data-tab="common">Common Drugs</button>
+                <button class="tab-btn" data-tab="markup">Highest Markup</button>
+                <button class="tab-btn" data-tab="increase">Biggest Price Increase</button>
+                <button class="tab-btn" data-tab="expensive">Most Expensive</button>
+            </div>
+            <div class="highlight-list active" id="hl-common"></div>
+            <div class="highlight-list" id="hl-markup"></div>
+            <div class="highlight-list" id="hl-increase"></div>
+            <div class="highlight-list" id="hl-expensive"></div>
+        </div>
+
+        <div class="methodology">
+            <h2>About This Data</h2>
+            <p><strong>NADAC</strong> (National Average Drug Acquisition Cost) is what pharmacies actually pay to acquire drugs from wholesalers and manufacturers. Published by CMS (Centers for Medicare &amp; Medicaid Services), it's surveyed weekly from a sample of retail pharmacies nationwide.</p>
+            <ul>
+                <li><strong>What this shows:</strong> The pharmacy acquisition cost per unit (pill, mL, gram). This is the wholesale cost — what the pharmacy pays before any markup.</li>
+                <li><strong>What this doesn't show:</strong> What patients pay at the counter. Pharmacy markup, insurance negotiations, PBM spread pricing, and copay structures all add layers between acquisition cost and patient cost.</li>
+                <li><strong>Brand vs. Generic markup:</strong> When a brand-name drug has a generic equivalent, we show the ratio. A 500x markup means the brand costs 500 times more to acquire than the identical generic molecule.</li>
+                <li><strong>Price changes:</strong> Tracked across the data period (2024–2025). Shows whether acquisition costs are rising or falling.</li>
+            </ul>
+            <p style="margin-top: 12px;">
+                <strong>Source:</strong> <a href="https://data.medicaid.gov/datasets?keyword=nadac" target="_blank">CMS/Medicaid NADAC Dataset</a> (December 2025).
+                6,692 drug formulations, 1.6 million price records. Weekly survey of retail pharmacies.
+            </p>
+            <p style="margin-top: 8px; font-style: italic;">
+                The gap between what pharmacies pay and what patients pay is the information asymmetry. This tool shows one side of it.
+            </p>
+        </div>
+
+        <footer>
+            Data: CMS/Medicaid NADAC (Dec 2025) · Not medical advice · No affiliation with CMS
+        </footer>
+    </div>
+
+    <div class="detail-overlay" id="detail-overlay">
+        <div class="detail-panel" id="detail-panel"></div>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        const BASE = 'data';
+        let meta = null;
+        let highlights = null;
+        let indexCache = {};
+        let detailCache = {};
+
+        // MD5 for shard keys (minimal implementation)
+        function md5(string) {
+            function md5cycle(x, k) {
+                var a = x[0], b = x[1], c = x[2], d = x[3];
+                a = ff(a, b, c, d, k[0], 7, -680876936);d = ff(d, a, b, c, k[1], 12, -389564586);c = ff(c, d, a, b, k[2], 17, 606105819);b = ff(b, c, d, a, k[3], 22, -1044525330);a = ff(a, b, c, d, k[4], 7, -176418897);d = ff(d, a, b, c, k[5], 12, 1200080426);c = ff(c, d, a, b, k[6], 17, -1473231341);b = ff(b, c, d, a, k[7], 22, -45705983);a = ff(a, b, c, d, k[8], 7, 1770035416);d = ff(d, a, b, c, k[9], 12, -1958414417);c = ff(c, d, a, b, k[10], 17, -42063);b = ff(b, c, d, a, k[11], 22, -1990404162);a = ff(a, b, c, d, k[12], 7, 1804603682);d = ff(d, a, b, c, k[13], 12, -40341101);c = ff(c, d, a, b, k[14], 17, -1502002290);b = ff(b, c, d, a, k[15], 22, 1236535329);a = gg(a, b, c, d, k[1], 5, -165796510);d = gg(d, a, b, c, k[6], 9, -1069501632);c = gg(c, d, a, b, k[11], 14, 643717713);b = gg(b, c, d, a, k[0], 20, -373897302);a = gg(a, b, c, d, k[5], 5, -701558691);d = gg(d, a, b, c, k[10], 9, 38016083);c = gg(c, d, a, b, k[15], 14, -660478335);b = gg(b, c, d, a, k[4], 20, -405537848);a = gg(a, b, c, d, k[9], 5, 568446438);d = gg(d, a, b, c, k[14], 9, -1019803690);c = gg(c, d, a, b, k[3], 14, -187363961);b = gg(b, c, d, a, k[8], 20, 1163531501);a = gg(a, b, c, d, k[13], 5, -1444681467);d = gg(d, a, b, c, k[2], 9, -51403784);c = gg(c, d, a, b, k[7], 14, 1735328473);b = gg(b, c, d, a, k[12], 20, -1926607734);a = hh(a, b, c, d, k[5], 4, -378558);d = hh(d, a, b, c, k[8], 11, -2022574463);c = hh(c, d, a, b, k[11], 16, 1839030562);b = hh(b, c, d, a, k[14], 23, -35309556);a = hh(a, b, c, d, k[1], 4, -1530992060);d = hh(d, a, b, c, k[4], 11, 1272893353);c = hh(c, d, a, b, k[7], 16, -155497632);b = hh(b, c, d, a, k[10], 23, -1094730640);a = hh(a, b, c, d, k[13], 4, 681279174);d = hh(d, a, b, c, k[0], 11, -358537222);c = hh(c, d, a, b, k[3], 16, -722521979);b = hh(b, c, d, a, k[6], 23, 76029189);a = hh(a, b, c, d, k[9], 4, -640364487);d = hh(d, a, b, c, k[12], 11, -421815835);c = hh(c, d, a, b, k[15], 16, 530742520);b = hh(b, c, d, a, k[2], 23, -995338651);a = ii(a, b, c, d, k[0], 6, -198630844);d = ii(d, a, b, c, k[7], 10, 1126891415);c = ii(c, d, a, b, k[14], 15, -1416354905);b = ii(b, c, d, a, k[5], 21, -57434055);a = ii(a, b, c, d, k[12], 6, 1700485571);d = ii(d, a, b, c, k[3], 10, -1894986606);c = ii(c, d, a, b, k[10], 15, -1051523);b = ii(b, c, d, a, k[1], 21, -2054922799);a = ii(a, b, c, d, k[8], 6, 1873313359);d = ii(d, a, b, c, k[15], 10, -30611744);c = ii(c, d, a, b, k[6], 15, -1560198380);b = ii(b, c, d, a, k[13], 21, 1309151649);a = ii(a, b, c, d, k[4], 6, -145523070);d = ii(d, a, b, c, k[11], 10, -1120210379);c = ii(c, d, a, b, k[2], 15, 718787259);b = ii(b, c, d, a, k[9], 21, -343485551);x[0] = add32(a, x[0]);x[1] = add32(b, x[1]);x[2] = add32(c, x[2]);x[3] = add32(d, x[3]);
+            }
+            function cmn(q, a, b, x, s, t) { a = add32(add32(a, q), add32(x, t)); return add32((a << s) | (a >>> (32 - s)), b); }
+            function ff(a, b, c, d, x, s, t) { return cmn((b & c) | ((~b) & d), a, b, x, s, t); }
+            function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & (~d)), a, b, x, s, t); }
+            function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+            function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | (~d)), a, b, x, s, t); }
+            function md5blk(s) {
+                var md5blks = [], i;
+                for (i = 0; i < 64; i += 4) md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i+1) << 8) + (s.charCodeAt(i+2) << 16) + (s.charCodeAt(i+3) << 24);
+                return md5blks;
+            }
+            var hex_chr = '0123456789abcdef'.split('');
+            function rhex(n) { var s = '', j = 0; for (; j < 4; j++) s += hex_chr[(n >> (j * 8 + 4)) & 0x0f] + hex_chr[(n >> (j * 8)) & 0x0f]; return s; }
+            function hex(x) { for (var i = 0; i < x.length; i++) x[i] = rhex(x[i]); return x.join(''); }
+            function add32(a, b) { return (a + b) & 0xFFFFFFFF; }
+            function md5str(s) {
+                var n = s.length, state = [1732584193, -271733879, -1732584194, 271733878], i;
+                for (i = 64; i <= n; i += 64) md5cycle(state, md5blk(s.substring(i - 64, i)));
+                s = s.substring(i - 64);
+                var tail = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+                for (i = 0; i < s.length; i++) tail[i >> 2] |= s.charCodeAt(i) << ((i % 4) << 3);
+                tail[i >> 2] |= 0x80 << ((i % 4) << 3);
+                if (i > 55) { md5cycle(state, tail); tail = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]; }
+                tail[14] = n * 8;
+                md5cycle(state, tail);
+                return hex(state);
+            }
+            return md5str(string);
+        }
+
+        function shardKey(name) {
+            return md5(name).substring(0, 2);
+        }
+
+        function fmt(n) {
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+            return n.toLocaleString();
+        }
+
+        function fmtPrice(p) {
+            if (p >= 1) return '$' + p.toFixed(2);
+            if (p >= 0.01) return '$' + p.toFixed(4);
+            return '$' + p.toFixed(5);
+        }
+
+        function unitLabel(u) {
+            return u === 'EA' ? 'pill' : u === 'ML' ? 'mL' : u === 'GM' ? 'gram' : u;
+        }
+
+        // Load JSON
+        async function loadJSON(path) {
+            const resp = await fetch(`${BASE}/${path}`);
+            if (!resp.ok) return null;
+            return resp.json();
+        }
+
+        // Load index shard for a letter
+        async function loadIndex(letter) {
+            if (indexCache[letter]) return indexCache[letter];
+            const data = await loadJSON(`index_${letter}.json`);
+            if (data) indexCache[letter] = data;
+            return data || [];
+        }
+
+        // Load detail shard
+        async function loadDetail(name) {
+            const sk = shardKey(name);
+            if (!detailCache[sk]) {
+                const data = await loadJSON(`d/${sk}.json`);
+                detailCache[sk] = data || {};
+            }
+            return detailCache[sk][name] || null;
+        }
+
+        // Search
+        let searchTimeout;
+        async function doSearch(query) {
+            const q = query.trim().toUpperCase();
+            if (q.length < 2) {
+                document.getElementById('results').innerHTML = '';
+                document.getElementById('highlights').style.display = '';
+                return;
+            }
+
+            document.getElementById('highlights').style.display = 'none';
+
+            // Determine which letter shards to load
+            const firstChar = q[0].toLowerCase();
+            const letter = firstChar.match(/[a-z]/) ? firstChar : '_';
+
+            const index = await loadIndex(letter);
+            if (!index) {
+                document.getElementById('results').innerHTML = '<div class="loading">No results found</div>';
+                return;
+            }
+
+            // Filter
+            const results = index.filter(item => item.n.includes(q));
+            results.sort((a, b) => {
+                // Exact start match first
+                const aStarts = a.n.startsWith(q) ? 0 : 1;
+                const bStarts = b.n.startsWith(q) ? 0 : 1;
+                if (aStarts !== bStarts) return aStarts - bStarts;
+                // Then by formulation count (more = more common)
+                return b.f - a.f;
+            });
+
+            renderResults(results.slice(0, 50));
+        }
+
+        function renderResults(results) {
+            const container = document.getElementById('results');
+            if (results.length === 0) {
+                container.innerHTML = '<div class="loading">No drugs found matching your search</div>';
+                return;
+            }
+
+            container.innerHTML = results.map(r => {
+                let priceHtml = `<span class="price-value">${fmtPrice(r.pn)}</span>`;
+                if (r.px > r.pn) priceHtml += ` – ${fmtPrice(r.px)}`;
+                priceHtml += ` / ${unitLabel(r.u)}`;
+
+                let badges = '';
+                if (r.b) badges += '<span class="badge badge-brand">Brand</span>';
+                if (r.g) badges += '<span class="badge badge-generic">Generic</span>';
+                if (r.o) badges += '<span class="badge badge-otc">OTC</span>';
+
+                let markupHtml = '';
+                if (r.m) {
+                    markupHtml = `<div class="result-sub"><span class="markup-value">${r.m.toLocaleString()}x brand markup</span> vs generic equivalent</div>`;
+                }
+
+                return `
+                    <div class="result-card" data-name="${r.n}" onclick="showDetail('${r.n.replace(/'/g, "\\'")}')">
+                        <div class="result-header">
+                            <div class="result-name">${r.n}</div>
+                            <div class="result-meta">${badges}</div>
+                        </div>
+                        <div class="result-price">Pharmacy acquisition cost: ${priceHtml}</div>
+                        ${markupHtml}
+                        <div class="result-sub">${r.f} formulation${r.f > 1 ? 's' : ''}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Detail view
+        window.showDetail = async function(name) {
+            const overlay = document.getElementById('detail-overlay');
+            const panel = document.getElementById('detail-panel');
+
+            panel.innerHTML = '<div class="loading">Loading...</div>';
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            const forms = await loadDetail(name);
+            if (!forms) {
+                panel.innerHTML = '<button class="detail-close" onclick="closeDetail()">&times;</button><p>Drug data not found.</p>';
+                return;
+            }
+
+            // Classify
+            const brandForms = forms.filter(f => f.class !== 'G');
+            const genericForms = forms.filter(f => f.class === 'G');
+
+            // Build formulation table
+            let tableHtml = `
+                <table class="form-table">
+                    <thead>
+                        <tr>
+                            <th>Formulation</th>
+                            <th>Type</th>
+                            <th>Cost/Unit</th>
+                            <th>Generic Cost</th>
+                            <th>Markup</th>
+                            <th>Price Δ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            for (const f of forms) {
+                const typeClass = f.class === 'G' ? 'badge-generic' : 'badge-brand';
+                const typeLabel = f.class === 'G' ? 'Generic' : 'Brand';
+                const gpHtml = f.gp !== undefined ? fmtPrice(f.gp) : '—';
+                const markupHtml = f.markup ? `<span class="markup-cell">${f.markup}x</span>` : '—';
+                let changeHtml = '—';
+                if (f.chg !== undefined) {
+                    const cls = f.chg > 0 ? 'change-up' : f.chg < 0 ? 'change-down' : '';
+                    const sign = f.chg > 0 ? '+' : '';
+                    changeHtml = `<span class="${cls}">${sign}${f.chg}%</span>`;
+                }
+
+                tableHtml += `
+                    <tr>
+                        <td>${f.desc}</td>
+                        <td><span class="badge ${typeClass}">${typeLabel}</span></td>
+                        <td class="price-cell">${fmtPrice(f.price)}/${unitLabel(f.unit)}</td>
+                        <td>${gpHtml}</td>
+                        <td>${markupHtml}</td>
+                        <td>${changeHtml}</td>
+                    </tr>
+                `;
+            }
+
+            tableHtml += '</tbody></table>';
+
+            // Price history chart (pick the formulation with most history)
+            let chartHtml = '';
+            const withHist = forms.filter(f => f.hist && f.hist.length > 2);
+            if (withHist.length > 0) {
+                // Show up to 3 formulations on the chart
+                const chartForms = withHist.slice(0, 3);
+                chartHtml = `
+                    <div class="chart-container">
+                        <div class="chart-title">Acquisition Cost Over Time</div>
+                        <canvas id="price-chart"></canvas>
+                    </div>
+                `;
+            }
+
+            // Summary stats
+            const allPrices = forms.map(f => f.price);
+            const minP = Math.min(...allPrices);
+            const maxP = Math.max(...allPrices);
+            const maxMarkup = Math.max(...forms.map(f => f.markup || 0));
+
+            let summaryHtml = '<div class="stats-bar" style="margin-bottom: 20px;">';
+            summaryHtml += `<div class="stat"><div class="stat-value">${forms.length}</div><div class="stat-label">Formulations</div></div>`;
+            summaryHtml += `<div class="stat"><div class="stat-value">${fmtPrice(minP)}</div><div class="stat-label">Lowest Cost</div></div>`;
+            if (maxP > minP) summaryHtml += `<div class="stat"><div class="stat-value">${fmtPrice(maxP)}</div><div class="stat-label">Highest Cost</div></div>`;
+            if (maxMarkup > 0) summaryHtml += `<div class="stat"><div class="stat-value" style="color:var(--red)">${maxMarkup}x</div><div class="stat-label">Brand Markup</div></div>`;
+            summaryHtml += '</div>';
+
+            panel.innerHTML = `
+                <button class="detail-close" onclick="closeDetail()">&times;</button>
+                <div class="detail-title">${name}</div>
+                ${summaryHtml}
+                ${chartHtml}
+                ${tableHtml}
+                <div style="margin-top: 16px; font-size: 0.82em; color: var(--text-dim);">
+                    Data as of ${forms[0].date}. Prices are national average acquisition costs (NADAC) — what pharmacies pay, not what patients pay.
+                    ${forms[0].ndcs ? `${forms[0].ndcs} NDC codes (manufacturers) surveyed.` : ''}
+                </div>
+            `;
+
+            // Draw chart if we have history
+            if (withHist.length > 0) {
+                drawChart(withHist.slice(0, 3));
+            }
+        };
+
+        window.closeDetail = function() {
+            document.getElementById('detail-overlay').classList.remove('active');
+            document.body.style.overflow = '';
+        };
+
+        // Simple canvas chart
+        function drawChart(forms) {
+            const canvas = document.getElementById('price-chart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = 200 * dpr;
+            ctx.scale(dpr, dpr);
+
+            const W = rect.width;
+            const H = 200;
+            const pad = { top: 10, right: 60, bottom: 30, left: 70 };
+            const plotW = W - pad.left - pad.right;
+            const plotH = H - pad.top - pad.bottom;
+
+            const colors = ['#4ecdc4', '#e74c5f', '#f39c12'];
+
+            // Find global date and price ranges
+            let allDates = new Set();
+            let allPrices = [];
+            forms.forEach(f => {
+                f.hist.forEach(([d, p]) => { allDates.add(d); allPrices.push(p); });
+            });
+
+            const sortedDates = [...allDates].sort();
+            const minDate = sortedDates[0];
+            const maxDate = sortedDates[sortedDates.length - 1];
+            const minPrice = Math.min(...allPrices) * 0.95;
+            const maxPrice = Math.max(...allPrices) * 1.05;
+            const priceRange = maxPrice - minPrice || 1;
+
+            // Parse date to numeric
+            function dateNum(d) {
+                const [y, m, day] = d.split('-').map(Number);
+                return y * 10000 + m * 100 + day;
+            }
+
+            const minD = dateNum(minDate);
+            const maxD = dateNum(maxDate);
+            const dateRange = maxD - minD || 1;
+
+            function xPos(d) { return pad.left + ((dateNum(d) - minD) / dateRange) * plotW; }
+            function yPos(p) { return pad.top + (1 - (p - minPrice) / priceRange) * plotH; }
+
+            // Grid
+            ctx.strokeStyle = '#2a2a3a';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (i / 4) * plotH;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+                const price = maxPrice - (i / 4) * priceRange;
+                ctx.fillStyle = '#8888a0';
+                ctx.font = '11px -apple-system, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(fmtPrice(price), pad.left - 8, y + 4);
+            }
+
+            // Date labels
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#8888a0';
+            ctx.fillText(minDate.substring(0, 7), pad.left, H - 8);
+            ctx.fillText(maxDate.substring(0, 7), W - pad.right, H - 8);
+
+            // Lines
+            forms.forEach((f, idx) => {
+                const color = colors[idx % colors.length];
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                f.hist.forEach(([d, p], i) => {
+                    const x = xPos(d);
+                    const y = yPos(p);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // Label
+                const lastPoint = f.hist[f.hist.length - 1];
+                ctx.fillStyle = color;
+                ctx.font = '10px -apple-system, sans-serif';
+                ctx.textAlign = 'left';
+                const label = f.desc.length > 30 ? f.desc.substring(0, 28) + '…' : f.desc;
+                ctx.fillText(label, W - pad.right + 4, yPos(lastPoint[1]) + 3);
+            });
+        }
+
+        // Highlight tabs
+        function initTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.highlight-list').forEach(l => l.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById('hl-' + btn.dataset.tab).classList.add('active');
+                });
+            });
+        }
+
+        function renderHighlights() {
+            if (!highlights) return;
+
+            // Common drugs
+            const commonEl = document.getElementById('hl-common');
+            commonEl.innerHTML = highlights.common.map(d => {
+                let stat = fmtPrice(d.price);
+                let label = `per ${unitLabel('EA')}`;
+                if (d.markup) {
+                    stat = d.markup + 'x';
+                    label = 'vs generic';
+                }
+                return `
+                    <div class="hl-item" onclick="showDetail('${d.name.replace(/'/g, "\\'")}')">
+                        <div>
+                            <div class="hl-name">${d.name}</div>
+                            <div class="hl-desc">${d.desc}</div>
+                        </div>
+                        <div class="hl-stat">
+                            <div class="hl-stat-value" style="${d.markup ? 'color:var(--red)' : 'color:var(--accent)'}">${stat}</div>
+                            <div class="hl-stat-label">${label}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Markup
+            const markupEl = document.getElementById('hl-markup');
+            markupEl.innerHTML = highlights.top_markup.map(d => `
+                <div class="hl-item" onclick="showDetail('${d.name.replace(/'/g, "\\'")}')">
+                    <div>
+                        <div class="hl-name">${d.name}</div>
+                        <div class="hl-desc">${d.desc} — Brand: ${fmtPrice(d.price)} vs Generic: ${fmtPrice(d.gp)}</div>
+                    </div>
+                    <div class="hl-stat">
+                        <div class="hl-stat-value" style="color:var(--red)">${d.markup.toLocaleString()}x</div>
+                        <div class="hl-stat-label">markup</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Price increase
+            const increaseEl = document.getElementById('hl-increase');
+            increaseEl.innerHTML = highlights.top_increase.map(d => `
+                <div class="hl-item" onclick="showDetail('${d.name.replace(/'/g, "\\'")}')">
+                    <div>
+                        <div class="hl-name">${d.name}</div>
+                        <div class="hl-desc">${d.desc} — Now: ${fmtPrice(d.price)}/${unitLabel(d.unit)}</div>
+                    </div>
+                    <div class="hl-stat">
+                        <div class="hl-stat-value" style="color:var(--red)">+${d.chg}%</div>
+                        <div class="hl-stat-label">increase</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Most expensive
+            const expensiveEl = document.getElementById('hl-expensive');
+            expensiveEl.innerHTML = highlights.top_price.map(d => `
+                <div class="hl-item" onclick="showDetail('${d.name.replace(/'/g, "\\'")}')">
+                    <div>
+                        <div class="hl-name">${d.name}</div>
+                        <div class="hl-desc">${d.desc}</div>
+                    </div>
+                    <div class="hl-stat">
+                        <div class="hl-stat-value" style="color:var(--accent)">${fmtPrice(d.price)}</div>
+                        <div class="hl-stat-label">per ${unitLabel(d.unit)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Init
+        async function init() {
+            meta = await loadJSON('meta.json');
+            highlights = await loadJSON('highlights.json');
+
+            if (meta) {
+                document.getElementById('stat-drugs').textContent = fmt(meta.total_drugs);
+                document.getElementById('stat-brand').textContent = fmt(meta.brand_count);
+                document.getElementById('stat-generic').textContent = fmt(meta.generic_count);
+                document.getElementById('stat-markup').textContent = meta.avg_brand_markup + 'x';
+                document.getElementById('drug-count').textContent = meta.total_drugs.toLocaleString();
+            }
+
+            initTabs();
+            renderHighlights();
+
+            // Search handler
+            const searchInput = document.getElementById('search');
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => doSearch(searchInput.value), 200);
+            });
+
+            // Close detail on overlay click or escape
+            document.getElementById('detail-overlay').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('detail-overlay')) closeDetail();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeDetail();
+            });
+        }
+
+        init();
+    })();
+    </script>
+</body>
+</html>
